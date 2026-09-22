@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" 
+           Name="Speedy 2.0 Multi-WAN Bonding" 
+           Language="1033" 
+           Version="2.0.0.0" 
+           Manufacturer="Speedy Open Source Project" 
+           UpgradeCode="7E4B2F89-3D1A-4C2E-8E5A-9D2B4A1F6E3C">
+    
+    <Package InstallerVersion="500" 
+             Compressed="yes" 
+             InstallScope="perMachine" 
+             Platform="x64" 
+             Description="Speedy 2.0 High-Performance WAN Bonding System Installer" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="ProductFeature" Title="Speedy 2.0" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="ApplicationShortcut" />
+    </Feature>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="Speedy">
+          <Directory Id="UIDIR" Name="ui" />
+          <Directory Id="SCRIPTSDIR" Name="scripts" />
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Speedy 2.0" />
+      </Directory>
+      <Directory Id="System64Folder" />
+    </Directory>
+
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcut" Guid="4A3C2B1D-5E6F-7A8B-9C0D-1E2F3A4B5C6D">
+        <Shortcut Id="ApplicationStartMenuShortcut"
+                  Name="Speedy Dashboard"
+                  Description="Speedy 2.0 WAN Bonding Web Dashboard"
+                  Target="[INSTALLFOLDER]speedy-ui.exe"
+                  WorkingDirectory="[INSTALLFOLDER]" />
+        <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\Speedy\Speedy2.0" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- Client Executable and Background Service -->
+      <Component Id="SpeedyClientExe" Guid="8B9C0D1E-2F3A-4B5C-6D7E-8A9B0C1D2E3F" Win64="yes">
+        <File Id="speedy_client.exe" Source="..\..\bin\speedy-client.exe" KeyPath="yes" />
+        
+        <ServiceInstall Id="ServiceInstaller"
+                        Type="ownProcess"
+                        Name="speedy-tunnel"
+                        DisplayName="Speedy 2.0 Multi-WAN Bonding Tunnel"
+                        Description="High-performance packet-level WAN bonding tunnel daemon with Wintun adapter management."
+                        Start="auto"
+                        Account="LocalSystem"
+                        ErrorControl="normal"
+                        Arguments="--service run" />
+        
+        <ServiceControl Id="ServiceControl_Start"
+                        Name="speedy-tunnel"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+      </Component>
+
+      <!-- UI Executable -->
+      <Component Id="SpeedyUiExe" Guid="9C0D1E2F-3A4B-5C6D-7E8A-9B0C1D2E3F4A" Win64="yes">
+        <File Id="speedy_ui.exe" Source="..\..\bin\speedy-ui.exe" KeyPath="yes" />
+      </Component>
+
+      <!-- Relay Executable -->
+      <Component Id="SpeedyRelayExe" Guid="0D1E2F3A-4B5C-6D7E-8A9B-0C1D2E3F4A5B" Win64="yes">
+        <File Id="speedy_relay.exe" Source="..\..\bin\speedy-relay.exe" KeyPath="yes" />
+      </Component>
+
+      <!-- Wintun Driver DLL -->
+      <Component Id="WintunDll" Guid="1E2F3A4B-5C6D-7E8A-9B0C-1D2E3F4A5B6C" Win64="yes">
+        <File Id="wintun.dll" Source="..\..\bin\wintun.dll" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Product>
+</Wix>

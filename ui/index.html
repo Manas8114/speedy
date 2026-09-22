@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Speedy 2.0 — High-Performance WAN Bonding Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>SPEEDY <span class="badge-v2">2.0</span></h1>
+          <span class="subtitle">Packet-Level WAN Bonding Core</span>
+        </div>
+      </div>
+
+      <div class="tunnel-status-pill">
+        <span class="status-dot pulsing" id="statusDot"></span>
+        <span id="tunnelStatusText">BONDED & ACTIVE</span>
+        <span class="session-id" id="sessionDisplay">SESSION #1001</span>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn btn-secondary" id="btnDeployModal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+          One-Click Relay
+        </button>
+        <button class="btn btn-primary" id="btnPreflight">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          Pre-Flight Benchmark
+        </button>
+        <div class="master-toggle-wrap">
+          <label class="switch" for="masterToggle" title="Master Bonding Toggle">
+            <span class="sr-only">Master Bonding Toggle</span>
+            <input type="checkbox" id="masterToggle" checked title="Master Bonding Toggle" aria-label="Master Bonding Toggle">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="dashboard-grid">
+      <!-- Top Overview Stats -->
+      <section class="stat-cards-row">
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">AGGREGATE SPEED</span>
+            <span class="stat-pill success">+85% vs single</span>
+          </div>
+          <div class="stat-value" id="aggSpeedValue">842.5 <span class="stat-unit">Mbps</span></div>
+          <div class="stat-sub" id="aggPacketsSec">108,420 packets/sec</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">REORDER BUFFER</span>
+            <span class="stat-pill" id="bufferPill">0.0 ms stall</span>
+          </div>
+          <div class="stat-value" id="reorderOcc">12 <span class="stat-unit">pkts in flight</span></div>
+          <div class="stat-sub" id="reorderDups">128 dups deduped • 0 late drops</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">RESILIENCE / FEC</span>
+            <span class="stat-pill cyan">ACTIVE</span>
+          </div>
+          <div class="stat-value" id="appLossValue">0.00% <span class="stat-unit">app loss</span></div>
+          <div class="stat-sub" id="fecStats">Adaptive RS (10:1) • 0 resets</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">ROUTING LOOP GUARD</span>
+            <span class="stat-pill success">ARMED</span>
+          </div>
+          <div class="stat-value" id="relayPinnedIP">198.51.100.1</div>
+          <div class="stat-sub">Pinned via Physical GW (eth0)</div>
+        </div>
+      </section>
+
+      <!-- Scheduler Tier Bar -->
+      <section class="scheduler-tier-card">
+        <div class="card-title-row">
+          <div class="card-title">SCHEDULER LADDER</div>
+          <span class="tier-desc" id="tierDescription">Adaptive EWMA goodput measurement dynamically balances packets across healthy links.</span>
+        </div>
+        <div class="tier-pill-selector" id="tierSelector">
+          <button class="tier-pill" data-tier="1">Tier 1: Round-Robin</button>
+          <button class="tier-pill active" data-tier="2">Tier 2: Goodput-Weighted</button>
+          <button class="tier-pill" data-tier="3">Tier 3: Min-RTT + cwnd</button>
+          <button class="tier-pill" data-tier="4">Tier 4: HoL-Aware</button>
+          <button class="tier-pill redundant" data-tier="0">REDUNDANT Mode</button>
+        </div>
+      </section>
+
+      <!-- Center Columns: Throughput Chart & Path Cards -->
+      <div class="middle-split-row">
+        <!-- Live Chart -->
+        <div class="chart-card">
+          <div class="card-header-flex">
+            <div class="card-title">REAL-TIME BONDED TELEMETRY</div>
+            <div class="chart-legend">
+              <span class="legend-item"><span class="legend-color agg"></span> Aggregate</span>
+              <span class="legend-item"><span class="legend-color path0"></span> Wi-Fi (wlan0)</span>
+              <span class="legend-item"><span class="legend-color path1"></span> Cellular (cell0)</span>
+            </div>
+          </div>
+          <canvas id="telemetryChart" height="220"></canvas>
+        </div>
+
+        <!-- Physical NIC Cards -->
+        <div class="nic-manager-card">
+          <div class="card-header-flex">
+            <div class="card-title">PHYSICAL UPLINKS (<span id="activeNicCount">2</span> ACTIVE)</div>
+            <button class="btn btn-sm btn-outline" id="btnSimulateDrop">Simulate Wi-Fi Drop</button>
+          </div>
+
+          <div class="nic-list" id="nicList">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Wi-Fi 6/6E/7 Optimizer Card (Phase 2.5) -->
+      <section class="wifi-optimizer-card">
+        <div class="card-header-flex">
+          <div class="card-title-group">
+            <div class="card-title">WI-FI OPTIMIZER (MULTI-BAND BSSID TUNER)</div>
+            <span class="wifi-badge-active" id="currentWifiStandard">ACTIVE: Wi-Fi 5 (5 GHz • Ch 36 • 650 Mbps)</span>
+          </div>
+          <div class="wifi-opt-controls">
+            <div class="btn-group-segmented">
+              <button class="seg-btn active" id="btnWifiModeAuto">Auto</button>
+              <button class="seg-btn" id="btnWifiModePin">Manual Pin</button>
+              <button class="seg-btn" id="btnWifiModeExclude">Exclude 2.4G</button>
+            </div>
+            <button class="btn btn-sm btn-primary" id="btnWifiRescan">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              Re-Benchmark Candidates
+            </button>
+          </div>
+        </div>
+
+        <div class="wifi-candidate-table-wrapper">
+          <table class="wifi-table">
+            <thead>
+              <tr>
+                <th>SSID / BSSID</th>
+                <th>Standard</th>
+                <th>Band</th>
+                <th>Width</th>
+                <th>Signal (RSSI)</th>
+                <th>Link Rate</th>
+                <th>Est. Goodput</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="wifiCandidateBody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Bottom Row: Bounded Rotating Ring Logs -->
+      <section class="logs-card">
+        <div class="card-header-flex">
+          <div class="card-title">OPERATIONAL LOG STREAM (BOUNDED RING BUFFER)</div>
+          <span class="log-capacity-tag">Capacity: 500 lines • Loopback Authenticated</span>
+        </div>
+        <div class="log-terminal" id="logTerminal">
+          <!-- Logs appended dynamically -->
+        </div>
+      </section>
+    </main>
+
+    <!-- One-Click Relay Modal -->
+    <div class="modal-overlay" id="relayModal">
+      <div class="modal-window">
+        <div class="modal-header">
+          <h3>Deploy Speedy 2.0 Relay VPS</h3>
+          <button class="btn-close" id="btnCloseModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-intro">Speedy 2.0 packet-level bonding requires a single public endpoint. Deploy your dedicated relay in 60 seconds with zero lock-in.</p>
+          
+          <div class="modal-template-alert" id="modalTemplateAlert">
+            <strong>Deployment Options:</strong> Use our automated 1-click cloud provisioner to launch a live relay in 30 seconds, or copy sample configuration templates for manual setup.
+          </div>
+
+          <div class="provider-tabs">
+            <button class="provider-tab active" data-provider="auto-cloud">⚡ 1-Click Cloud Deploy</button>
+            <button class="provider-tab" data-provider="docker">Docker Compose</button>
+            <button class="provider-tab" data-provider="cloudinit">Cloud-Init</button>
+            <button class="provider-tab" data-provider="script">Shell Script</button>
+          </div>
+
+          <!-- Automated 1-Click Cloud Provisioner Panel -->
+          <div class="cloud-deploy-box" id="cloudDeployBox">
+            <div class="cloud-grid">
+              <div class="input-group">
+                <label for="cloudProviderSelect">Cloud Provider</label>
+                <select id="cloudProviderSelect" class="cloud-select" title="Cloud Provider Selection">
+                  <option value="sandbox">Speedy Sandbox (Instant / Zero-Cost)</option>
+                  <option value="digitalocean">DigitalOcean Droplets</option>
+                  <option value="hetzner">Hetzner Cloud (CX22)</option>
+                </select>
+              </div>
+              <div class="input-group">
+                <label for="cloudRegionSelect">Datacenter Region</label>
+                <select id="cloudRegionSelect" class="cloud-select" title="Datacenter Region Selection">
+                  <option value="local-dev">💻 Local Dev Loopback</option>
+                  <option value="sandbox-us-east">🇺🇸 Cloud Sandbox US-East</option>
+                  <option value="sandbox-eu-central">🇪🇺 Cloud Sandbox EU-Central</option>
+                  <option value="sandbox-ap-south">🇮🇳 Cloud Sandbox AP-South</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="input-group" id="groupApiToken" style="display: none;">
+              <label for="cloudApiToken">Provider API Token</label>
+              <input type="password" id="cloudApiToken" class="cloud-input" placeholder="Paste your cloud API secret key..." title="Cloud API Secret Token">
+            </div>
+
+            <button class="btn-deploy-cloud" id="btnRunCloudDeploy">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              <span>Deploy Cloud Relay (30 Seconds)</span>
+            </button>
+
+            <div class="cloud-terminal" id="cloudTerminal" style="display: none;">
+              <!-- Streaming deployment logs -->
+            </div>
+          </div>
+
+          <div class="code-box-wrapper" id="codeBoxWrapper" style="display: none;">
+            <pre><code id="deployCodeBlock">services:
+  speedy-relay:
+    image: speedy/relay:v2.0
+    restart: always
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - PORT=51820
+      - POOL=10.254.1.0/24
+    volumes:
+      - ./relay_key.hex:/opt/speedy/relay_key.hex</code></pre>
+            <button class="btn btn-sm btn-copy" id="btnCopyCode">Copy Config</button>
+          </div>
+
+          <div class="modal-form-row">
+            <div class="input-group">
+              <label for="inputRelayHost">Relay Host / IP</label>
+              <input type="text" id="inputRelayHost" value="198.51.100.1:51820" placeholder="198.51.100.1:51820" title="Relay Host and Port">
+            </div>
+            <div class="input-group">
+              <label for="inputRelayKey">Relay Public Key</label>
+              <input type="text" id="inputRelayKey" value="a4f91c928e1b742de80182f019b7c8a34298d011983bf9e02c019912093847aa" placeholder="Relay Public Key Hex" title="Relay Public Key Hex">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btnCancelModal">Close</button>
+          <button class="btn btn-primary" id="btnApplyRelay">Save & Connect</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# Binaries & build artifacts
+/bin/
+/dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test outputs & temporary files
+*.test
+*.out
+*.log
+.tempmediaStorage/
+scratch/
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS specific
+Thumbs.db
+Desktop.ini
+.DS_Store
