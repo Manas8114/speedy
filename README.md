@@ -6,6 +6,16 @@
 [![Cryptography](https://img.shields.io/badge/Crypto-Noise__IK__25519__ChaChaPoly-blue?style=flat)]()
 [![FEC Engine](https://img.shields.io/badge/FEC-Reed--Solomon%20GF(2%5E8)%20Cauchy-orange?style=flat)]()
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-lightgrey?style=flat)]()
+[![GitHub Release](https://img.shields.io/github/v/release/Manas8114/speedy?color=green&label=Release)](https://github.com/Manas8114/speedy/releases/tag/v2.0.0)
+
+<p align="center">
+  <a href="https://github.com/Manas8114/speedy/releases/download/v2.0.0/Speedy-2.0-Setup-x64.exe">
+    <img src="https://img.shields.io/badge/Download_Installer-Speedy--2.0--Setup--x64.exe-00f0ff?style=for-the-badge&logo=windows&logoColor=black" alt="Download Windows Installer">
+  </a>
+  <a href="https://github.com/Manas8114/speedy/releases/download/v2.0.0/Speedy-2.0-Windows-x64.zip">
+    <img src="https://img.shields.io/badge/Download_Portable-Speedy--2.0--Windows--x64.zip-3b82f6?style=for-the-badge&logo=zip" alt="Download Portable ZIP">
+  </a>
+</p>
 
 **Speedy 2.0** is an advanced, production-grade **packet-level multi-WAN bonding tunnel**. Unlike session-level proxy balancers (such as original Speedy, which round-robins whole SOCKS5 TCP connections), Speedy 2.0 aggregates individual IP packets across multiple physical uplinks (Wi-Fi 7/6E/5, 5G/LTE cellular, Ethernet, Starlink) simultaneously. Single TCP connections, video streams, and bulk transfers achieve aggregated bandwidth with millisecond-level failover.
 
