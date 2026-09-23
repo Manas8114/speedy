@@ -36,10 +36,10 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "startservice"; Description: "Register and start Speedy Bonding background daemon service"; GroupDescription: "System Services:"
 
 [Files]
-Source: "..\..\bin\speedy-client.exe"; DestDir: "{app}"; Flags: ignoreversion signonce
-Source: "..\..\bin\speedy-ui.exe"; DestDir: "{app}"; Flags: ignoreversion signonce
-Source: "..\..\bin\speedy-relay.exe"; DestDir: "{app}"; Flags: ignoreversion signonce
-Source: "..\..\bin\wintun.dll"; DestDir: "{app}"; Flags: ignoreversion signonce
+Source: "..\..\bin\speedy-client.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\bin\speedy-ui.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\bin\speedy-relay.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\bin\wintun.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\bin\wintun.dll"; DestDir: "{sys}"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "..\..\ui\*"; DestDir: "{app}\ui"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\scripts\install-service.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
