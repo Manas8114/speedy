@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
       appendLog("INFO", `Scheduler switched to ${state.tierNames[tier].split("(")[0]}`);
       
       // Update backend API if available
-      fetch("http://127.0.0.1:8721/api/v1/settings", {
+      fetch("/api/v1/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ selected_tier: tier })
@@ -74,8 +74,16 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Master Toggle
-  masterToggle.addEventListener("change", (e) => {
+  masterToggle.addEventListener("change", async (e) => {
     state.bonded = e.target.checked;
+    try {
+      await fetch("/api/v1/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tunnel_active: state.bonded })
+      });
+    } catch (_) {}
+
     if (state.bonded) {
       statusDot.className = "status-dot pulsing";
       tunnelStatusText.textContent = "BONDED & ACTIVE";
@@ -87,6 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
       appendLog("WARN", "Tunnel interface disabled by user. Default route uninstalled");
     }
   });
+
 
   // Simulate Wi-Fi Drop / Unplug
   let wifiDropped = false;
@@ -300,12 +309,12 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    state.paths.forEach((p, idx) => {
+    state.paths.forEach((p) => {
       const item = document.createElement("div");
       const st = (p.state || "STANDBY").toLowerCase();
       item.className = `nic-item ${st}`;
+      item.dataset.id = p.id;
 
-      const isUp = p.state === "ACTIVE" || p.state === "STANDBY";
       const dotColor = p.state === "ACTIVE" ? "var(--accent-green)" : (p.state === "DEGRADED" ? "var(--accent-amber)" : "var(--accent-blue)");
 
       item.innerHTML = `
@@ -364,6 +373,25 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Live update of existing NIC card metrics without recreating DOM sliders
+  function updateNICMetrics(paths) {
+    paths.forEach(p => {
+      const card = document.querySelector(`.nic-item[data-id="${p.id}"]`);
+      if (!card) return;
+      const metrics = card.querySelectorAll(".metric-val");
+      if (metrics.length >= 3) {
+        metrics[0].textContent = p.state === 'DEAD' || !p.rtt ? '—' : p.rtt.toFixed(1) + ' ms';
+        metrics[1].textContent = p.state === 'DEAD' ? '100%' : (p.loss ? p.loss.toFixed(1) + '%' : '0.0%');
+        metrics[2].textContent = p.goodput ? p.goodput.toFixed(1) + ' Mbps' : '0.0 Mbps';
+      }
+      const dot = card.querySelector(".status-dot");
+      if (dot) {
+        dot.className = `status-dot ${p.state === 'ACTIVE' ? 'pulsing' : ''}`;
+        dot.style.backgroundColor = p.state === 'ACTIVE' ? 'var(--accent-green)' : (p.state === 'DEGRADED' ? 'var(--accent-amber)' : 'var(--accent-blue)');
+      }
+    });
+  }
+
   function appendLog(level, msg) {
     const line = document.createElement("div");
     line.className = "log-line";
@@ -387,24 +415,29 @@ document.addEventListener("DOMContentLoaded", () => {
           const data = await res.json();
 
           if (data.paths && data.paths.length > 0) {
-            if (!initialPathsLoaded || state.paths.length === 0) {
-              state.paths = data.paths;
+            state.paths = data.paths;
+            if (!initialPathsLoaded) {
               initialPathsLoaded = true;
               renderNICs();
               const names = data.paths.map(p => p.name).join(", ");
               appendLog("INFO", `Uplinks detected from daemon: ${names}`);
+            } else {
+              updateNICMetrics(data.paths);
             }
           }
 
-          const isTunnelActive = data.tunnel_active || false;
+          const isTunnelActive = data.tunnel_active !== false;
+          masterToggle.checked = isTunnelActive;
           const aggRate = data.aggregate_throughput_mbps || 0;
+
+          // Dynamically pick top active paths for p0 and p1 graph lines
+          const activePaths = [...(data.paths || [])].sort((a, b) => (b.goodput || 0) - (a.goodput || 0));
           let p0Rate = 0;
           let p1Rate = 0;
-
-          if (data.paths && data.paths.length > 0) {
-            p0Rate = data.paths[0].goodput || 0;
-            if (data.paths.length > 1) {
-              p1Rate = data.paths[1].goodput || 0;
+          if (activePaths.length > 0) {
+            p0Rate = activePaths[0].goodput || 0;
+            if (activePaths.length > 1) {
+              p1Rate = activePaths[1].goodput || 0;
             }
           }
 
@@ -414,15 +447,14 @@ document.addEventListener("DOMContentLoaded", () => {
             statusDot.className = "status-dot pulsing";
             statusDot.style.backgroundColor = "var(--accent-green)";
             tunnelStatusText.textContent = "BONDED & ACTIVE";
-            aggSpeedValue.innerHTML = `${aggRate.toFixed(1)} <span class="stat-unit">Mbps</span>`;
-            aggPacketsSec.textContent = `${Math.round(aggRate * 128).toLocaleString()} packets/sec`;
           } else {
             statusDot.className = "status-dot";
             statusDot.style.backgroundColor = "var(--accent-amber)";
             tunnelStatusText.textContent = "STANDBY (READY)";
-            aggSpeedValue.innerHTML = `0.0 <span class="stat-unit">Mbps</span>`;
-            aggPacketsSec.textContent = "0 packets/sec";
           }
+
+          aggSpeedValue.innerHTML = `${aggRate.toFixed(1)} <span class="stat-unit">Mbps</span>`;
+          aggPacketsSec.textContent = `${Math.round(aggRate * 128).toLocaleString()} packets/sec`;
 
           const occ = (data.reorder_buffer && data.reorder_buffer.occupancy) || 0;
           reorderOcc.innerHTML = `${occ} <span class="stat-unit">pkts in buffer</span>`;
@@ -458,6 +490,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
+    // Dynamic auto-scaling based on peak rate in rolling window
+    const peak = Math.max(...state.history.agg, ...state.history.p0, ...state.history.p1, 2.0);
+    const maxVal = Math.max(10, Math.ceil((peak * 1.35) / 10) * 10);
+
     // Draw Grid Lines
     ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
     ctx.lineWidth = 1;
@@ -468,7 +504,12 @@ document.addEventListener("DOMContentLoaded", () => {
       ctx.stroke();
     }
 
-    const maxVal = 1000;
+    // Scale label in top-right
+    ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.font = "10px monospace";
+    ctx.textAlign = "right";
+    ctx.fillText(`Scale: ${maxVal} Mbps`, w - 10, 16);
+
     const stepX = w / (state.history.agg.length - 1);
 
     // Draw Line Function
@@ -476,7 +517,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ctx.beginPath();
       data.forEach((val, i) => {
         const x = i * stepX;
-        const y = h - (val / maxVal) * (h - 20) - 10;
+        const y = h - (val / maxVal) * (h - 26) - 10;
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
@@ -494,13 +535,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const gradAgg = ctx.createLinearGradient(0, 0, 0, h);
-    gradAgg.addColorStop(0, "rgba(0, 240, 255, 0.2)");
+    gradAgg.addColorStop(0, "rgba(0, 240, 255, 0.22)");
     gradAgg.addColorStop(1, "rgba(0, 240, 255, 0.0)");
 
     drawLine(state.history.p1, "#c084fc", null);
     drawLine(state.history.p0, "#38bdf8", null);
     drawLine(state.history.agg, "#00f0ff", gradAgg);
   }
+
 
   // ==========================================
   // Phase 2.5: Wi-Fi Optimizer Controller
@@ -704,3 +746,346 @@ document.addEventListener("DOMContentLoaded", () => {
   fetchWiFiScan();
 });
 
+// ===== PLEXO TURBO DOWNLOADER UI =====
+(function() {
+  const NIC_COLORS = ['#00f0ff','#8b5cf6','#10b981','#f59e0b','#ec4899','#3b82f6'];
+
+  let plexoPolling = null;
+  let plexoIfaces  = [];
+  let plexoSelected = {};
+  let chunkEls = [];
+
+  const modal      = document.getElementById('plexoModal');
+  const btnOpen    = document.getElementById('btnPlexoModal');
+  const btnClose   = document.getElementById('btnClosePlexo');
+  const btnCancel  = document.getElementById('btnCancelPlexo');
+  const urlInput   = document.getElementById('plexoUrl');
+  const btnProbe   = document.getElementById('btnPlexoProbe');
+  const probeCard  = document.getElementById('plexoProbeCard');
+  const ifaceList  = document.getElementById('plexoIfaceList');
+  const controls   = document.getElementById('plexoControls');
+  const btnStart   = document.getElementById('btnPlexoStart');
+  const btnPause   = document.getElementById('btnPlexoPause');
+  const btnResume  = document.getElementById('btnPlexoResume');
+  const btnCancelDl = document.getElementById('btnPlexoCancel');
+  const progressDiv = document.getElementById('plexoProgress');
+  const barFill    = document.getElementById('plexoBarFill');
+  const statPct    = document.getElementById('plexoStatPercent');
+  const statSpeed  = document.getElementById('plexoStatSpeed');
+  const statETA    = document.getElementById('plexoStatETA');
+  const statBytes  = document.getElementById('plexoStatBytes');
+  const ifaceSpeeds = document.getElementById('plexoIfaceSpeeds');
+  const chunkGrid  = document.getElementById('plexoChunkGrid');
+  const legend     = document.getElementById('plexoLegend');
+
+  function openModal() {
+    modal.classList.add('open');
+    loadInterfaces();
+    checkStatusOnOpen();
+  }
+  function closeModal() {
+    modal.classList.remove('open');
+    stopPolling();
+  }
+
+  btnOpen  && btnOpen.addEventListener('click', openModal);
+  btnClose && btnClose.addEventListener('click', closeModal);
+  btnCancel && btnCancel.addEventListener('click', closeModal);
+  modal && modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+  async function loadInterfaces() {
+    ifaceList.innerHTML = '<span class="plexo-iface-loading">Scanning interfaces\u2026</span>';
+    try {
+      const res = await fetch('/api/plexo/interfaces');
+      const data = await res.json();
+      plexoIfaces = data.interfaces || [];
+      renderIfaceChips();
+    } catch(e) {
+      ifaceList.innerHTML = '<span class="plexo-iface-loading" style="color:var(--accent-red)">Scan failed: ' + e.message + '</span>';
+    }
+  }
+
+  function renderIfaceChips() {
+    ifaceList.innerHTML = '';
+    if (!plexoIfaces.length) {
+      ifaceList.innerHTML = '<span class="plexo-iface-loading">No interfaces found.</span>';
+      return;
+    }
+    plexoIfaces.forEach((iface, i) => {
+      const color = NIC_COLORS[i % NIC_COLORS.length];
+      const isRoutable = iface.routable !== false;
+      if (!(iface.name in plexoSelected)) {
+        plexoSelected[iface.name] = isRoutable;
+      }
+      const chip = document.createElement('div');
+      chip.className = 'plexo-iface-chip' + (plexoSelected[iface.name] ? ' selected' : '');
+      chip.style.setProperty('--chip-color', color);
+      const ip = (iface.local_ips || [])[0] || '';
+      const tag = isRoutable ? '' : '<span style="font-size:0.68rem;opacity:0.6;margin-left:4px">(local)</span>';
+      chip.innerHTML = `<span class="plexo-chip-dot" style="background:${color}"></span><span>${iface.name}</span><span class="plexo-chip-ip">${ip}</span>${tag}`;
+      chip.addEventListener('click', () => {
+        plexoSelected[iface.name] = !plexoSelected[iface.name];
+        chip.classList.toggle('selected', plexoSelected[iface.name]);
+      });
+      ifaceList.appendChild(chip);
+    });
+    controls.classList.remove('hidden');
+    controls.style.display = 'flex';
+  }
+
+  btnProbe && btnProbe.addEventListener('click', async () => {
+    const url = urlInput.value.trim();
+    if (!url) return;
+    btnProbe.textContent = 'Probing\u2026';
+    btnProbe.disabled = true;
+    probeCard.style.display = 'none';
+    try {
+      const res = await fetch('/api/plexo/probe', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({url})
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'probe failed');
+      renderProbeCard(data.probe);
+    } catch(e) {
+      alert('Probe failed: ' + e.message);
+    } finally {
+      btnProbe.textContent = 'Probe';
+      btnProbe.disabled = false;
+    }
+  });
+
+  function renderProbeCard(p) {
+    document.getElementById('probeFilename').textContent = p.filename || '\u2014';
+    document.getElementById('probeSize').textContent     = p.total_bytes ? fmtBytes(p.total_bytes) : 'Unknown';
+    const rangeEl = document.getElementById('probeRange');
+    rangeEl.textContent  = p.supports_ranges ? '\u2705 206 Partial Content' : '\u274c Single stream only';
+    rangeEl.style.color  = p.supports_ranges ? '#10b981' : '#f59e0b';
+    document.getElementById('probeType').textContent = p.content_type || '\u2014';
+    document.getElementById('probeTTFB').textContent = p.ttfb_ms ? p.ttfb_ms + ' ms' : '\u2014';
+    probeCard.classList.remove('hidden');
+    probeCard.style.display = 'grid';
+  }
+
+  btnStart && btnStart.addEventListener('click', async () => {
+    const url = urlInput.value.trim();
+    if (!url) { alert('Enter a URL first.'); return; }
+    const selected = plexoIfaces.filter(i => plexoSelected[i.name]).map(i => i.name);
+    btnStart.disabled = true;
+    try {
+      const res = await fetch('/api/plexo/start', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({url, ifaces: selected, chunk_mb: 4})
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'start failed');
+      progressDiv.classList.remove('hidden');
+      progressDiv.style.display = 'block';
+      btnStart.style.display = 'none';
+      btnPause.classList.remove('hidden');
+      btnPause.style.display = 'inline-flex';
+      btnCancelDl.classList.remove('hidden');
+      btnCancelDl.style.display = 'inline-flex';
+      buildChunkGrid(data.chunks);
+      startPolling();
+    } catch(e) {
+      alert('Start failed: ' + e.message);
+    } finally {
+      btnStart.disabled = false;
+    }
+  });
+
+  btnPause && btnPause.addEventListener('click', async () => {
+    await fetch('/api/plexo/pause', {method:'POST'});
+    btnPause.style.display = 'none';
+    btnResume.classList.remove('hidden');
+    btnResume.style.display = 'inline-flex';
+  });
+  btnResume && btnResume.addEventListener('click', async () => {
+    await fetch('/api/plexo/resume', {method:'POST'});
+    btnResume.style.display = 'none';
+    btnPause.classList.remove('hidden');
+    btnPause.style.display = 'inline-flex';
+  });
+  btnCancelDl && btnCancelDl.addEventListener('click', async () => {
+    await fetch('/api/plexo/cancel', {method:'POST'});
+    stopPolling();
+    resetUI();
+  });
+
+
+  function startPolling() {
+    stopPolling();
+    plexoPolling = setInterval(pollStatus, 250);
+  }
+  function stopPolling() {
+    if (plexoPolling) { clearInterval(plexoPolling); plexoPolling = null; }
+  }
+
+  async function checkStatusOnOpen() {
+    try {
+      const res = await fetch('/api/plexo/status');
+      const data = await res.json();
+      if (data.stats && (data.stats.state === 'running' || data.stats.state === 'paused')) {
+        progressDiv.style.display = 'block';
+        btnStart.style.display = 'none';
+        btnCancelDl.style.display = '';
+        if (data.stats.state === 'paused') { btnPause.style.display='none'; btnResume.style.display=''; }
+        else { btnPause.style.display=''; btnResume.style.display='none'; }
+        buildChunkGrid(data.stats.chunks.length);
+        updateProgress(data.stats);
+        startPolling();
+      }
+    } catch(e) {}
+  }
+
+  async function pollStatus() {
+    try {
+      const res = await fetch('/api/plexo/status');
+      const data = await res.json();
+      if (!data.stats) return;
+      updateProgress(data.stats);
+      if (data.stats.state === 'done') {
+        stopPolling();
+        barFill.style.width = '100%';
+        statPct.textContent = '100%';
+        btnPause.style.display = 'none';
+        btnResume.style.display = 'none';
+        btnCancelDl.style.display = 'none';
+        btnStart.style.display = 'inline-flex';
+        btnStart.disabled = false;
+        btnStart.textContent = 'Download Another File';
+        renderSavedBanner(data.stats.dest_path, data.stats.filename);
+      } else if (data.stats.state === 'cancelled') {
+        stopPolling();
+        resetUI();
+      }
+    } catch(e) {}
+  }
+
+  function renderSavedBanner(destPath, filename) {
+    let banner = document.getElementById('plexoSavedBanner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'plexoSavedBanner';
+      banner.className = 'plexo-saved-banner';
+      progressDiv.appendChild(banner);
+    }
+    const displayPath = destPath || filename || 'Downloads';
+    banner.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(16,185,129,0.12);border:1px solid #10b981;border-radius:8px;padding:12px 16px;margin-top:14px;">
+        <div style="min-width:0;">
+          <div style="font-weight:700;color:#10b981;display:flex;align-items:center;gap:6px;font-size:0.9rem;">
+            <span>✓</span> Download Complete & Saved!
+          </div>
+          <div style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-main);margin-top:4px;word-break:break-all;">
+            ${displayPath}
+          </div>
+        </div>
+        <button class="btn btn-sm btn-primary" id="btnOpenSavedFolder" style="margin-left:14px;white-space:nowrap;cursor:pointer;">
+          📁 Open Folder
+        </button>
+      </div>
+    `;
+    const openBtn = document.getElementById('btnOpenSavedFolder');
+    if (openBtn) {
+      openBtn.addEventListener('click', () => {
+        fetch('/api/plexo/open-folder', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({path: destPath})
+        });
+      });
+    }
+  }
+
+
+  function updateProgress(stats) {
+    const total = stats.total_bytes || 1;
+    const done  = stats.completed_bytes || 0;
+    const pct   = Math.min(100, (done / total * 100));
+    barFill.style.width = pct.toFixed(1) + '%';
+    statPct.textContent  = pct.toFixed(1) + '%';
+    statSpeed.textContent = ((stats.speed_bps||0)/1e6).toFixed(2) + ' MB/s';
+    statETA.textContent   = stats.eta_ms > 0 ? 'ETA: ' + fmtDur(stats.eta_ms) : 'ETA: \u2014';
+    statBytes.textContent = fmtBytes(done) + ' / ' + fmtBytes(total);
+
+    if (stats.per_iface && stats.per_iface.length) {
+      ifaceSpeeds.innerHTML = stats.per_iface.map((iface, i) => {
+        const color = NIC_COLORS[i % NIC_COLORS.length];
+        const spd = ((iface.speed_bps||0)/1e6).toFixed(2);
+        return `<div class="plexo-speed-badge"><span class="plexo-speed-dot" style="background:${color}"></span><span>${iface.name}</span><span style="color:${color};font-weight:700;margin-left:4px">${spd} MB/s</span></div>`;
+      }).join('');
+    }
+
+    if (stats.chunks && stats.chunks.length) updateChunkGrid(stats.chunks);
+  }
+
+  function buildChunkGrid(countOrArr) {
+    const count = typeof countOrArr === 'number' ? countOrArr : (countOrArr||[]).length;
+    chunkGrid.innerHTML = '';
+    chunkEls = [];
+    const legendHtml = [
+      '<div class="plexo-legend-item"><span class="plexo-legend-swatch" style="background:rgba(255,255,255,0.07)"></span>Pending</div>',
+    ].concat(plexoIfaces.map((iface, i) => {
+      const color = NIC_COLORS[i % NIC_COLORS.length];
+      return `<div class="plexo-legend-item"><span class="plexo-legend-swatch" style="background:${color}"></span>${iface.name}</div>`;
+    }));
+    legend.innerHTML = legendHtml.join('');
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.className = 'plexo-chunk';
+      el.title = 'Chunk #' + i;
+      chunkGrid.appendChild(el);
+      chunkEls.push(el);
+    }
+  }
+
+  function updateChunkGrid(chunks) {
+    chunks.forEach((c, i) => {
+      const el = chunkEls[i];
+      if (!el) return;
+      el.className = 'plexo-chunk';
+      if (c.status === 1) {
+        el.classList.add('downloading');
+        if (c.iface_idx >= 0) el.classList.add('nic-' + (c.iface_idx % NIC_COLORS.length));
+      } else if (c.status === 2) {
+        el.classList.add('done');
+        if (c.iface_idx >= 0) el.classList.add('nic-' + (c.iface_idx % NIC_COLORS.length));
+      } else if (c.status === 3) {
+        el.classList.add('failed');
+      }
+    });
+  }
+
+  function resetUI() {
+    progressDiv.style.display = 'none';
+    btnStart.style.display = 'inline-flex';
+    btnStart.disabled = false;
+    btnStart.textContent = 'Start Turbo Download';
+    btnPause.style.display = 'none';
+    btnResume.style.display = 'none';
+    btnCancelDl.style.display = 'none';
+    barFill.style.width = '0%';
+    statPct.textContent = '0%';
+    chunkGrid.innerHTML = '';
+    legend.innerHTML = '';
+    ifaceSpeeds.innerHTML = '';
+    const banner = document.getElementById('plexoSavedBanner');
+    if (banner) banner.remove();
+  }
+
+
+  function fmtBytes(b) {
+    if (!b) return '0 B';
+    const k = 1024, sz = ['B','KB','MB','GB','TB'];
+    const i = Math.floor(Math.log(b)/Math.log(k));
+    return (b/Math.pow(k,i)).toFixed(2) + ' ' + sz[i];
+  }
+  function fmtDur(ms) {
+    const s = Math.round(ms/1000);
+    return s < 60 ? s + 's' : Math.floor(s/60) + 'm ' + (s%60) + 's';
+  }
+})();

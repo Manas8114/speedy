@@ -32,6 +32,10 @@
       </div>
 
       <div class="header-actions">
+        <button class="btn btn-plexo" id="btnPlexoModal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          ⚡ Plexo Turbo
+        </button>
         <button class="btn btn-secondary" id="btnDeployModal">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
           One-Click Relay
@@ -187,6 +191,94 @@
       </section>
     </main>
 
+    <!-- Plexo Turbo Downloader Modal -->
+    <div class="modal-overlay" id="plexoModal">
+      <div class="modal-window modal-wide">
+        <div class="modal-header">
+          <h3>⚡ Plexo Turbo Downloader</h3>
+          <button class="btn-close" id="btnClosePlexo">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-intro">Aggregate your Wi-Fi + Ethernet + Mobile Hotspot to download files at combined speeds — directly from the source, no relay needed.</p>
+
+          <!-- URL Input Row -->
+          <div class="plexo-url-row">
+            <input type="text" id="plexoUrl" class="plexo-url-input" placeholder="Paste any direct download URL (HTTP/HTTPS)…" title="Download URL">
+            <button class="btn btn-secondary" id="btnPlexoProbe">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              Probe
+            </button>
+          </div>
+
+          <!-- File Probe Result -->
+          <div class="plexo-probe-card hidden" id="plexoProbeCard">
+            <div class="plexo-probe-row">
+              <span class="plexo-probe-label">Filename</span>
+              <span class="plexo-probe-value" id="probeFilename">—</span>
+            </div>
+            <div class="plexo-probe-row">
+              <span class="plexo-probe-label">Size</span>
+              <span class="plexo-probe-value" id="probeSize">—</span>
+            </div>
+            <div class="plexo-probe-row">
+              <span class="plexo-probe-label">Range Support</span>
+              <span class="plexo-probe-value" id="probeRange">—</span>
+            </div>
+            <div class="plexo-probe-row">
+              <span class="plexo-probe-label">Type</span>
+              <span class="plexo-probe-value" id="probeType">—</span>
+            </div>
+            <div class="plexo-probe-row">
+              <span class="plexo-probe-label">TTFB</span>
+              <span class="plexo-probe-value" id="probeTTFB">—</span>
+            </div>
+          </div>
+
+          <!-- Interface Picker -->
+          <div class="plexo-section-label">Select Network Interfaces</div>
+          <div class="plexo-iface-list" id="plexoIfaceList">
+            <span class="plexo-iface-loading">Scanning interfaces…</span>
+          </div>
+
+          <!-- Download Controls -->
+          <div class="plexo-controls hidden" id="plexoControls">
+            <button class="btn-deploy-cloud" id="btnPlexoStart">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+              Start Turbo Download
+            </button>
+            <button class="btn btn-secondary hidden" id="btnPlexoPause">⏸ Pause</button>
+            <button class="btn btn-secondary hidden" id="btnPlexoResume">▶ Resume</button>
+            <button class="btn btn-danger hidden" id="btnPlexoCancel">✕ Cancel</button>
+          </div>
+
+          <!-- Progress Section -->
+          <div class="plexo-progress hidden" id="plexoProgress">
+            <!-- Progress Bar -->
+            <div class="plexo-bar-wrap">
+              <div class="plexo-bar-fill" id="plexoBarFill"></div>
+            </div>
+            <div class="plexo-stats-row">
+              <span id="plexoStatPercent">0%</span>
+              <span id="plexoStatSpeed">0 MB/s</span>
+              <span id="plexoStatETA">ETA: —</span>
+              <span id="plexoStatBytes">0 / 0 MB</span>
+            </div>
+            <!-- Per-Interface Speeds -->
+            <div class="plexo-iface-speeds" id="plexoIfaceSpeeds"></div>
+            <!-- Chunk Grid -->
+            <div class="plexo-chunk-section">
+              <div class="plexo-section-label">Chunk Map</div>
+              <div class="plexo-legend" id="plexoLegend"></div>
+              <div class="plexo-chunk-grid" id="plexoChunkGrid"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btnCancelPlexo">Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- One-Click Relay Modal -->
     <div class="modal-overlay" id="relayModal">
       <div class="modal-window">
@@ -230,7 +322,7 @@
               </div>
             </div>
 
-            <div class="input-group" id="groupApiToken" style="display: none;">
+            <div class="input-group hidden" id="groupApiToken">
               <label for="cloudApiToken">Provider API Token</label>
               <input type="password" id="cloudApiToken" class="cloud-input" placeholder="Paste your cloud API secret key..." title="Cloud API Secret Token">
             </div>
@@ -240,12 +332,12 @@
               <span>Deploy Cloud Relay (30 Seconds)</span>
             </button>
 
-            <div class="cloud-terminal" id="cloudTerminal" style="display: none;">
+            <div class="cloud-terminal hidden" id="cloudTerminal">
               <!-- Streaming deployment logs -->
             </div>
           </div>
 
-          <div class="code-box-wrapper" id="codeBoxWrapper" style="display: none;">
+          <div class="code-box-wrapper hidden" id="codeBoxWrapper">
             <pre><code id="deployCodeBlock">services:
   speedy-relay:
     image: speedy/relay:v2.0

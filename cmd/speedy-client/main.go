@@ -10,14 +10,22 @@ import (
 	"syscall"
 	"time"
 
+	"path/filepath"
 	"speedy/pkg/crypto"
 	"speedy/pkg/engine"
+	"speedy/pkg/plexo"
 	"speedy/pkg/routing"
 	"speedy/pkg/service"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "download" {
+		runDownloadSubcommand(os.Args[2:])
+		return
+	}
+
 	serviceCmd := flag.String("service", "", "Windows service command: install, uninstall, start, stop, status, run")
+
 	relayAddr := flag.String("relay", "127.0.0.1:51820", "Relay host:port")
 	relayPubHex := flag.String("relay-pubkey", "", "Relay static public key hex")
 	tunName := flag.String("tun", "speedy-client0", "TUN device name")
@@ -169,3 +177,78 @@ func main() {
 	_ = stopFunc()
 	fmt.Println("Tunnel closed.")
 }
+
+func runDownloadSubcommand(args []string) {
+	fs := flag.NewFlagSet("download", flag.ExitOnError)
+	urlFlag := fs.String("url", "", "URL of the file to download")
+	outFlag := fs.String("out", "", "Output destination file path")
+	chunkFlag := fs.Int("chunk", 4, "Chunk size in MB")
+	_ = fs.Parse(args)
+
+	targetURL := *urlFlag
+	if targetURL == "" && fs.NArg() > 0 {
+		targetURL = fs.Arg(0)
+	}
+	if targetURL == "" {
+		log.Fatal("Error: please provide a download URL via --url or as an argument")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	fmt.Printf("🔍 Probing URL: %s...\n", targetURL)
+	probe, err := plexo.ProbeURL(ctx, targetURL)
+	if err != nil {
+		log.Fatalf("Probe failed: %v", err)
+	}
+
+	fmt.Printf("✓ File: %s (Size: %d bytes, Range 206: %t)\n", probe.Filename, probe.TotalBytes, probe.SupportsRanges)
+
+	ifaces, err := plexo.AvailableInterfaces()
+	if err != nil || len(ifaces) == 0 {
+		log.Fatalf("No available network interfaces: %v", err)
+	}
+
+	destPath := *outFlag
+	if destPath == "" {
+		home, _ := os.UserHomeDir()
+		dl := filepath.Join(home, "Downloads")
+		if stat, err := os.Stat(dl); err == nil && stat.IsDir() {
+			destPath = filepath.Join(dl, probe.Filename)
+		} else {
+			destPath = probe.Filename
+		}
+	}
+
+	sess, err := plexo.NewSession(probe, destPath, ifaces, int64(*chunkFlag)*1024*1024)
+	if err != nil {
+		log.Fatalf("Creating session failed: %v", err)
+	}
+
+	fmt.Printf("🚀 Starting Plexo Turbo download across %d interface(s) -> %s\n", len(ifaces), destPath)
+	if err := sess.Start(); err != nil {
+		log.Fatalf("Start failed: %v", err)
+	}
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		st := sess.Stats()
+		pct := 0.0
+		if st.TotalBytes > 0 {
+			pct = float64(st.CompletedBytes) / float64(st.TotalBytes) * 100.0
+		}
+		speedMB := float64(st.SpeedBps) / 1_000_000.0
+		fmt.Printf("\r⬇️  Progress: %5.1f%% (%d / %d bytes) | Speed: %5.2f MB/s", pct, st.CompletedBytes, st.TotalBytes, speedMB)
+		if st.State == "done" {
+			fmt.Printf("\n✓ Download completed successfully: %s\n", destPath)
+			return
+		}
+		if st.State == "cancelled" {
+			fmt.Printf("\n✗ Download cancelled.\n")
+			return
+		}
+	}
+}
+

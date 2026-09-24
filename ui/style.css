@@ -1051,3 +1051,284 @@ canvas#telemetryChart {
   gap: 6px;
 }
 
+/* ===== PLEXO TURBO DOWNLOADER ===== */
+
+/* Header button */
+.btn-plexo {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-plexo:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.7);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Wide modal */
+.modal-wide {
+  max-width: 720px;
+  width: 94vw;
+}
+
+/* URL input row */
+.plexo-url-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.plexo-url-input {
+  flex: 1;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  transition: border-color 0.2s;
+}
+.plexo-url-input:focus {
+  outline: none;
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 0 2px rgba(245,158,11,0.2);
+}
+
+/* Probe result card */
+.plexo-probe-card {
+  background: var(--bg-surface);
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.plexo-probe-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.plexo-probe-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+.plexo-probe-value {
+  font-size: 0.85rem;
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+/* Section label */
+.plexo-section-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  margin-bottom: 8px;
+  margin-top: 14px;
+}
+
+/* Interface picker */
+.plexo-iface-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+  min-height: 42px;
+  align-items: center;
+}
+.plexo-iface-loading {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+}
+.plexo-iface-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.18s;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.hidden {
+  display: none;
+}
+
+.plexo-iface-chip:hover {
+  border-color: var(--chip-color, var(--accent-cyan));
+  box-shadow: 0 0 10px rgba(0,240,255,0.12);
+}
+.plexo-iface-chip.selected {
+  border-color: var(--chip-color, var(--accent-cyan));
+  background: color-mix(in srgb, var(--chip-color, var(--accent-cyan)) 12%, transparent);
+  color: var(--chip-color, var(--accent-cyan));
+}
+.plexo-chip-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--chip-color, var(--accent-cyan));
+}
+.plexo-chip-ip {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  opacity: 0.65;
+}
+
+/* Controls row */
+.plexo-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+.btn-danger {
+  background: rgba(239,68,68,0.12);
+  border: 1px solid rgba(239,68,68,0.4);
+  color: #ef4444;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-danger:hover { background: rgba(239,68,68,0.22); }
+
+/* Progress section */
+.plexo-progress { margin-top: 14px; }
+
+.plexo-bar-wrap {
+  height: 8px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.plexo-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 12px rgba(245,158,11,0.4);
+}
+
+.plexo-stats-row {
+  display: flex;
+  gap: 20px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.plexo-stats-row span:first-child {
+  color: var(--accent-amber);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+/* Per-iface speed badges */
+.plexo-iface-speeds {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.plexo-speed-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 0.76rem;
+  font-family: var(--font-mono);
+}
+.plexo-speed-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+
+/* Chunk grid */
+.plexo-chunk-section { margin-top: 8px; }
+.plexo-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  font-size: 0.73rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+.plexo-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.plexo-legend-swatch {
+  width: 12px; height: 12px; border-radius: 3px;
+}
+.plexo-chunk-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.plexo-chunk {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.07);
+  transition: background 0.25s ease;
+  cursor: default;
+}
+.plexo-chunk.downloading {
+  animation: chunkPulse 0.8s ease-in-out infinite;
+}
+.plexo-chunk.done { opacity: 1; }
+.plexo-chunk.failed {
+  background: var(--accent-red) !important;
+  opacity: 0.7;
+}
+
+@keyframes chunkPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Per-NIC chunk colors */
+.plexo-chunk.nic-0 { background: #00f0ff; }
+.plexo-chunk.nic-1 { background: #8b5cf6; }
+.plexo-chunk.nic-2 { background: #10b981; }
+.plexo-chunk.nic-3 { background: #f59e0b; }
+.plexo-chunk.nic-4 { background: #ec4899; }
+.plexo-chunk.nic-5 { background: #3b82f6; }
+
